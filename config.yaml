@@ -83,9 +83,9 @@ prompt: |
   Write the briefing in exactly this structure:
 
   ## THE STORY TODAY
-  2-3 sentences. The single connecting narrative across the day's news.
-  If today is genuinely fragmented, say so rather than forcing a false
-  through-line.
+  2-3 sentences. The most consequential thing happening today. If multiple
+  unrelated stories compete for the top spot, name the top two rather than
+  forcing a connection that isn't there.
 
   ## WORLD NEWS
   Max 5 bullets. The most important global events: conflicts, diplomacy,
@@ -112,14 +112,15 @@ prompt: |
   developments. Name companies and numbers explicitly.
 
   ## QUANT RESEARCH
-  Max 3 bullets. Factor research, systematic strategy developments,
-  market microstructure, derivatives. Briefly explain the concept when
-  it is central to the bullet.
+  Max 3 bullets. Systematic finance insights from today's source material — factor
+  dynamics, strategy observations, risk ideas. When the source is a blog post, frame it
+  as practitioner commentary, not a research result.
+
 
   ## WATCH LIST
-  3-5 items. Developing situations worth monitoring — not headline news
-  today but worth tracking. Format: "ITEM — why it matters and what to
-  watch for"
+  3-5 items. Developing situations worth monitoring over the next 1-2 weeks —
+  not headline news today but worth tracking. Format: "ITEM — why it matters
+  and what to watch for"
 
   ## ⚠ ACTION / ATTENTION
   Only include if something genuinely warrants attention today.
@@ -130,6 +131,7 @@ prompt: |
   - Never invent data — write "details not disclosed" if specifics are absent
   - No filler. No "it is worth noting". No "this could potentially".
   - One clause of context for foreign actors/situations the reader may not know
+  - Skip entertainment, sports, and tech product announcements unless there is a direct market or policy angle.
   - Be blunt.
 
 # ── Urgency keywords ──────────────────────────────────────────
