@@ -11,13 +11,17 @@ import anthropic
 from anthropic.types import TextBlock
 
 
-def build_article_context(sections: dict[str, list[dict]]) -> str:
+def build_article_context(
+    sections: dict[str, list[dict]], run_date: str | None = None
+) -> str:
     """
     Serialise all fetched articles into a structured context block
     for Claude. Format is deliberately readable — Claude performs
     better with clean structured input than JSON blobs.
     """
     lines = ["# TODAY'S SOURCE MATERIAL\n"]
+    if run_date:
+        lines.append(f"**Briefing date: {run_date}**\n")
     total = 0
 
     for section, articles in sections.items():
@@ -44,6 +48,7 @@ def run_analysis(
     prompt: str,
     model: str,
     max_tokens: int,
+    run_date: str | None = None,
 ) -> str:
     """
     Send all articles to Claude in a single call.
@@ -53,8 +58,8 @@ def run_analysis(
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY not set in environment / .env")
 
-    client  = anthropic.Anthropic(api_key=api_key)
-    context = build_article_context(sections)
+    client = anthropic.Anthropic(api_key=api_key)
+    context = build_article_context(sections, run_date)
 
     user_message = f"{context}\n\n---\n\n{prompt}"
 
@@ -87,9 +92,9 @@ def extract_attention_items(briefing_text: str) -> list[str]:
     Pull items from the ⚠ ACTION / ATTENTION section of the briefing.
     Used to surface the attention block in the terminal header.
     """
-    lines      = briefing_text.splitlines()
+    lines = briefing_text.splitlines()
     in_section = False
-    items      = []
+    items = []
 
     for line in lines:
         if "ACTION" in line.upper() or "ATTENTION" in line.upper():

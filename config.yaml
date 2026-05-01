@@ -6,6 +6,7 @@
 # ── Articles ──────────────────────────────────────────────────
 articles_per_section: 6
 max_description_chars: 1500
+max_article_age_days: 3    # skip articles older than this; 3 catches Mon-Wed articles on Friday
 
 # ── Claude ────────────────────────────────────────────────────
 claude:

@@ -126,12 +126,14 @@ def generate(
     date_str = datetime.now().strftime("%Y-%m-%d")
 
     # ── 1. Fetch articles ──────────────────────────────────────
+    max_age_days = cfg.get("max_article_age_days", 0)
     with console.status("[dim]Fetching articles…[/]"):
         sections = fetch_all_sections(
             sources=sources,
             alpaca_config=alpaca_cfg,
             articles_per_section=articles_n,
             max_chars=max_chars,
+            max_age_days=max_age_days,
         )
 
     total_articles = sum(len(v) for v in sections.values())
@@ -166,6 +168,7 @@ def generate(
                 prompt=prompt,
                 model=model,
                 max_tokens=max_tokens,
+                run_date=date_str,
             )
         except Exception as e:
             err_console.print(f"[red]Claude API error:[/] {e}")
