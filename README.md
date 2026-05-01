@@ -1,4 +1,4 @@
-# briefing
+# digest
 
 > Daily global news digest in the terminal. World news, politics,
 > economics, science & tech, business — with a quant research side
@@ -37,8 +37,9 @@ uv sync
 cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
 
-# 3. Run
-uv run python briefing.py generate --show
+# 3. Generate and read
+uv run digest --generate
+uv run digest
 ```
 
 ---
@@ -46,18 +47,16 @@ uv run python briefing.py generate --show
 ## Commands
 
 ```bash
-uv run python briefing.py generate             # Fetch + Claude + store. Designed for cron.
-uv run python briefing.py generate --no-market # Skip market ticker (faster)
-uv run python briefing.py generate --dry-run   # Fetch articles only, no Claude call
-uv run python briefing.py generate --no-log    # Don't save anything
-uv run python briefing.py generate --show      # Generate and display immediately
+digest                          # Show most recent briefing — instant, no API call
+digest --date 2026-04-28        # Show a specific date
+digest --list                   # List all stored briefing dates
+digest --query "fed rate"       # Search past briefings + article titles
+digest --query "Mali" -n 20     # Search with a result limit
 
-uv run python briefing.py show                 # Display today's stored briefing — instant, no API call
-uv run python briefing.py show --date 2026-04-28
-uv run python briefing.py show --list          # List all stored dates
-
-uv run python briefing.py query "fed rate"     # Search past briefings + article titles
-uv run python briefing.py query "Mali" -n 20
+digest --generate               # Fetch + Claude + store. Designed for cron.
+digest --generate --no-market   # Skip market ticker (faster)
+digest --generate --dry-run     # Fetch articles only, no Claude call
+digest --generate --no-log      # Don't save anything
 ```
 
 ---
@@ -70,7 +69,7 @@ All settings in `config.yaml` — no code changes needed.
 |---|---|
 | `articles_per_section` | How many articles fetched per section |
 | `max_description_chars` | Article body length fed to Claude (more = better analysis, more cost) |
-| `max_article_age_days` | Skip articles older than this (default 3 — catches Mon-Wed on Friday) |
+| `max_article_age_days` | Skip articles older than this (default 3 — catches Mon–Wed on Friday) |
 | `claude.model` | Claude model — `claude-sonnet-4-6` is the default |
 | `claude.max_tokens` | Briefing length cap (default 3000) |
 | `market_tickers` | Which prices appear in the ticker bar |
@@ -109,18 +108,18 @@ Articles older than `max_article_age_days` are filtered out at the fetch stage s
 ## Automation (home server)
 
 ```bash
-# Cron: 07:00 every day (generates and stores silently)
+# Cron: 07:00 every weekday (generates and stores silently)
 crontab -e
-0 7 * * * cd /path/to/digest && /home/you/.local/bin/uv run python briefing.py generate >> ~/.briefing_logs/cron.log 2>&1
+0 7 * * 1-5 cd /path/to/digest && /home/you/.local/bin/uv run digest --generate >> ~/.briefing_logs/cron.log 2>&1
 
 # Read it from anywhere — instant, reads from SQLite, no API call
-uv run python briefing.py show
+uv run digest
 
 # Or via SSH from your laptop:
-alias briefing="ssh yourserver 'cd /path/to/digest && uv run python briefing.py show'"
+alias digest="ssh yourserver 'cd /path/to/digest && uv run digest'"
 ```
 
-`generate` and `show` are deliberately split: cron generates silently overnight, you read instantly any time without waiting for network or API.
+`--generate` and the default read are deliberately split: cron generates silently in the morning, you read instantly any time without waiting for network or API.
 
 ---
 
@@ -132,15 +131,15 @@ Linear pipeline, four modules, one orchestrator:
 - `analyse.py` — single Claude call with all articles serialised into one structured context block.
 - `store.py` — SQLite (`briefings` + `articles` tables) and per-day markdown.
 - `render.py` — Rich terminal output with section colour coding.
-- `briefing.py` — Click CLI orchestrator.
+- `briefing.py` — Click CLI, installed as the `digest` command.
 
-Re-running `generate` on the same date appends a new row to SQLite (history retained); the markdown file is overwritten.
+Re-running `--generate` on the same date appends a new row to SQLite (full history retained) and overwrites the markdown file. Same-day re-runs see the full article set — cross-day deduplication is scoped to previous dates only, so a re-run after a cron failure won't produce an empty briefing.
 
 ---
 
 ## Storage
 
-- **SQLite**: `~/.briefing_logs/briefings.db` — queryable via `briefing query`. Two tables: `briefings` (one row per run) and `articles` (one row per fetched article).
+- **SQLite**: `~/.briefing_logs/briefings.db` — searchable via `digest --query`. Two tables: `briefings` (one row per run) and `articles` (one row per fetched article).
 - **Markdown**: `~/.briefing_logs/YYYY-MM-DD.md` — one file per day, overwritten on re-run.
 
 ---
@@ -148,7 +147,7 @@ Re-running `generate` on the same date appends a new row to SQLite (history reta
 ## Cost
 
 ~$0.05/day with default settings (claude-sonnet-4-6, 6 articles/section,
-3000 max output tokens). Shown in the footer of each run.
+3000 max output tokens). Shown in the status line during generation.
 
 Adjust `max_description_chars`, `articles_per_section`, and `claude.max_tokens` in `config.yaml` to control the cost/quality tradeoff.
 

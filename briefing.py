@@ -1,29 +1,22 @@
 #!/usr/bin/env python3
 """
-briefing.py — Daily executive news briefing for the terminal.
+digest — Daily executive news briefing for the terminal.
 
-Commands:
-    python briefing.py generate         # Fetch + analyse + store. Run via cron.
-    python briefing.py show             # Display today's stored briefing. Instant.
-    python briefing.py show --date 2026-04-28   # Show a specific past date
-    python briefing.py show --list      # List all available dates
-    python briefing.py query "fed rate" # Search past briefings
-    python briefing.py generate --dry-run       # Fetch only, skip Claude
+Usage:
+    digest                          # Show most recent briefing (instant)
+    digest --date 2026-04-28        # Show a specific date
+    digest --list                   # List all stored briefing dates
+    digest --query "fed rate"       # Search past briefings
+    digest --generate               # Fetch + analyse + store (for cron)
+    digest --generate --dry-run     # Fetch only, skip Claude call
 
-Typical setup:
-    # Cron at 07:00 Mon-Fri (generates and stores)
-    0 7 * * 1-5 cd /path/to/briefing_v3 && python briefing.py generate
-
-    # Whenever you want to read it (instant, no API call)
-    python briefing.py show
-
-    # From local machine via SSH alias
-    alias briefing="ssh yourserver 'cd /path/to/briefing_v3 && python briefing.py show'"
+Typical cron setup:
+    0 7 * * 1-5 cd /path/to/digest && uv run digest --generate
 """
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
@@ -44,6 +37,7 @@ from render import (  # noqa: E402
 )
 from store import (  # noqa: E402
     get_db,
+    get_recent_article_keys,
     list_briefing_dates,
     load_briefing,
     save_briefing,
@@ -84,34 +78,119 @@ def get_log_dir(cfg: dict) -> Path:
 # ─────────────────────────────────────────────
 
 
-@click.group()
-def cli():
-    """Daily executive news briefing."""
-    pass
-
-
-# ── GENERATE ──────────────────────────────────────────────────
-# Fetches, calls Claude, stores result. Designed for cron.
-# Does NOT display — just generates and saves silently.
-# Use `show` to display.
-
-
-@cli.command()
-@click.option("--config", "-c", default="config.yaml")
-@click.option("--no-market", is_flag=True, help="Skip live market data")
-@click.option("--no-log", is_flag=True, help="Don't save to disk")
-@click.option("--dry-run", is_flag=True, help="Fetch articles only, skip Claude call")
-@click.option("--show", is_flag=True, help="Display immediately after generating")
-def generate(
-    config: str,
+@click.command()
+@click.option("--generate", is_flag=True, help="Fetch news, call Claude, store result. For cron.")
+@click.option("--dry-run", is_flag=True, help="With --generate: fetch only, skip Claude call.")
+@click.option("--no-market", is_flag=True, help="With --generate: skip live market data.")
+@click.option("--no-log", is_flag=True, help="With --generate: don't save to disk.")
+@click.option("--query", "-q", default=None, metavar="TEXT", help="Search past briefings.")
+@click.option("--date", "-d", default=None, metavar="YYYY-MM-DD", help="Show briefing for a specific date.")
+@click.option("--list", "list_dates", is_flag=True, help="List all stored briefing dates.")
+@click.option("--config", "-c", default=str(Path(__file__).parent / "config.yaml"), hidden=True)
+@click.option("--limit", "-n", default=10, show_default=True, help="Max results for --query.")
+def cli(
+    generate: bool,
+    dry_run: bool,
     no_market: bool,
     no_log: bool,
-    dry_run: bool,
-    show: bool,
+    query: str | None,
+    date: str | None,
+    list_dates: bool,
+    config: str,
+    limit: int,
 ):
-    """Fetch news, call Claude, store the result. Designed for cron at 07:00."""
+    """Daily executive news briefing."""
 
     cfg = load_config(Path(config))
+
+    # ── GENERATE ──────────────────────────────────────────────────
+    if generate:
+        _run_generate(cfg, no_market=no_market, no_log=no_log, dry_run=dry_run)
+        return
+
+    log_dir = get_log_dir(cfg)
+    conn = get_db(log_dir)
+
+    # ── QUERY ─────────────────────────────────────────────────────
+    if query:
+        _run_query(log_dir, query, limit)
+        return
+
+    # ── LIST ──────────────────────────────────────────────────────
+    if list_dates:
+        dates = list_briefing_dates(conn)
+        if not dates:
+            console.print("[yellow]No briefings stored yet. Run: digest --generate[/]")
+            return
+        console.print()
+        for d in dates:
+            console.print(f"  [dim]{d}[/]  →  digest --date {d}")
+        console.print()
+        return
+
+    # ── SHOW ──────────────────────────────────────────────────────
+    if date:
+        date_str = date
+        row = load_briefing(conn, date_str)
+        if not row:
+            dates = list_briefing_dates(conn)
+            if dates:
+                console.print(f"[yellow]No briefing found for {date_str}.[/]")
+                console.print(f"[dim]Most recent: {dates[0]}  →  digest --date {dates[0]}[/]")
+            else:
+                console.print("[yellow]No briefings stored yet. Run: digest --generate[/]")
+        else:
+            _display_briefing(
+                briefing_text=row["briefing"],
+                market_data=row["market_data"],
+                model=row["model"],
+                article_count=row["article_count"],
+                log_path=None,
+                cost=0.0,
+                stored_at=row["run_time"],
+                date_str=date_str,
+            )
+        return
+
+    # ── DEFAULT: most recent briefing ─────────────────────────────
+    today = datetime.now().strftime("%Y-%m-%d")
+    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    row = load_briefing(conn, today)
+    display_date = today
+
+    if not row:
+        row = load_briefing(conn, yesterday)
+        display_date = yesterday
+
+    if not row:
+        dates = list_briefing_dates(conn)
+        if dates:
+            row = load_briefing(conn, dates[0])
+            display_date = dates[0]
+
+    if not row:
+        console.print("[yellow]No briefings stored yet. Run: digest --generate[/]")
+        return
+
+    _display_briefing(
+        briefing_text=row["briefing"],
+        market_data=row["market_data"],
+        model=row["model"],
+        article_count=row["article_count"],
+        log_path=None,
+        cost=0.0,
+        stored_at=row["run_time"],
+        date_str=display_date,
+    )
+
+
+# ─────────────────────────────────────────────
+# GENERATE IMPLEMENTATION
+# ─────────────────────────────────────────────
+
+
+def _run_generate(cfg: dict, no_market: bool, no_log: bool, dry_run: bool) -> None:
     articles_n = cfg.get("articles_per_section", 6)
     max_chars = cfg.get("max_description_chars", 1500)
     claude_cfg = cfg.get("claude", {})
@@ -125,7 +204,6 @@ def generate(
     log_dir = get_log_dir(cfg)
     date_str = datetime.now().strftime("%Y-%m-%d")
 
-    # ── 1. Fetch articles ──────────────────────────────────────
     max_age_days = cfg.get("max_article_age_days", 0)
     with console.status("[dim]Fetching articles…[/]"):
         sections = fetch_all_sections(
@@ -138,19 +216,27 @@ def generate(
 
     total_articles = sum(len(v) for v in sections.values())
 
-    # ── 2. Market data ─────────────────────────────────────────
     market_data = []
     if not no_market and tickers:
         with console.status("[dim]Fetching market data…[/]"):
             market_data = fetch_market_snapshot(tickers)
 
-    # ── 3. Urgency scan ────────────────────────────────────────
+    conn = None
+    if not no_log:
+        conn = get_db(log_dir)
+        recent_keys = get_recent_article_keys(conn, today=date_str)
+        sections = {
+            section: [
+                a
+                for a in arts
+                if " ".join(a["title"].lower().split()[:5]) not in recent_keys
+            ]
+            for section, arts in sections.items()
+        }
+        total_articles = sum(len(v) for v in sections.values())
+
     all_titles = [a["title"] for arts in sections.values() for a in arts]
     urgent_titles = [t for t in all_titles if is_urgent(t, urgent_kws)]
-
-    # ── 4. Claude ──────────────────────────────────────────────
-    briefing_text = ""
-    cost = 0.0
 
     if dry_run:
         console.print("[yellow]--dry-run: skipping Claude call.[/]")
@@ -169,25 +255,15 @@ def generate(
                 model=model,
                 max_tokens=max_tokens,
                 run_date=date_str,
+                market_data=market_data,
             )
         except Exception as e:
             err_console.print(f"[red]Claude API error:[/] {e}")
             sys.exit(1)
 
-    # ── 5. Store ───────────────────────────────────────────────
     log_path = None
-
-    if not no_log:
-        conn = get_db(log_dir)
-        save_briefing(
-            conn,
-            date_str,
-            briefing_text,
-            sections,
-            urgent_titles,
-            model,
-            market_data,
-        )
+    if not no_log and conn:
+        save_briefing(conn, date_str, briefing_text, sections, urgent_titles, model, market_data)
         log_path = save_markdown(log_dir, date_str, briefing_text, market_data)
 
     console.print(
@@ -197,118 +273,13 @@ def generate(
     if log_path:
         console.print(f"  [dim]saved → {log_path}[/]")
 
-    # ── 6. Optional immediate display ──────────────────────────
-    if show:
-        _display_briefing(
-            briefing_text, market_data, model, total_articles, log_path, cost
-        )
+
+# ─────────────────────────────────────────────
+# QUERY IMPLEMENTATION
+# ─────────────────────────────────────────────
 
 
-# ── SHOW ──────────────────────────────────────────────────────
-# Reads from SQLite. Zero network calls. Zero API cost. Instant.
-
-
-@cli.command()
-@click.option("--config", "-c", default="config.yaml")
-@click.option(
-    "--date", "-d", default=None, help="Date to show (YYYY-MM-DD). Defaults to today."
-)
-@click.option(
-    "--list", "list_dates", is_flag=True, help="List all available briefing dates."
-)
-def show(config: str, date: str, list_dates: bool):
-    """Display a stored briefing. Instant — reads from SQLite, no API calls."""
-
-    cfg = load_config(Path(config))
-    log_dir = get_log_dir(cfg)
-    conn = get_db(log_dir)
-
-    # ── List mode ──────────────────────────────────────────────
-    if list_dates:
-        dates = list_briefing_dates(conn)
-        if not dates:
-            console.print(
-                "[yellow]No briefings stored yet. Run: python briefing.py generate[/]"
-            )
-            return
-        console.print()
-        for d in dates:
-            console.print(f"  [dim]{d}[/]  →  briefing.py show --date {d}")
-        console.print()
-        return
-
-    # ── Load briefing ──────────────────────────────────────────
-    date_str = date or datetime.now().strftime("%Y-%m-%d")
-    row = load_briefing(conn, date_str)
-
-    if not row:
-        # Helpful fallback: tell them what dates exist
-        dates = list_briefing_dates(conn)
-        if dates:
-            console.print(f"[yellow]No briefing found for {date_str}.[/]")
-            console.print(
-                f"[dim]Most recent: {dates[0]}  →  briefing.py show --date {dates[0]}[/]"
-            )
-        else:
-            console.print(
-                "[yellow]No briefings stored yet. Run: python briefing.py generate[/]"
-            )
-        return
-
-    _display_briefing(
-        briefing_text=row["briefing"],
-        market_data=row["market_data"],
-        model=row["model"],
-        article_count=row["article_count"],
-        log_path=None,
-        cost=0.0,
-        stored_at=row["run_time"],
-        date_str=date_str,
-    )
-
-
-def _display_briefing(
-    briefing_text: str,
-    market_data: list,
-    model: str,
-    article_count: int,
-    log_path,
-    cost: float,
-    stored_at: str | None = None,
-    date_str: str | None = None,
-) -> None:
-    """Shared display logic for both generate --show and show."""
-    alpaca_active = bool(os.getenv("ALPACA_KEY_ID"))
-
-    render_header(model, article_count, alpaca_active)
-
-    if stored_at and date_str:
-        from rich.text import Text
-
-        t = Text()
-        t.append(f"  Generated {stored_at[:16].replace('T', ' ')} UTC", style="dim")
-        console.print(t)
-        console.print()
-
-    if market_data:
-        render_market_ticker(market_data)
-
-    render_briefing(briefing_text)
-    render_footer(log_path, cost)
-
-
-# ── QUERY ─────────────────────────────────────────────────────
-
-
-@cli.command()
-@click.argument("query_text")
-@click.option("--config", "-c", default="config.yaml")
-@click.option("--limit", "-n", default=10, show_default=True)
-def query(query_text: str, config: str, limit: int):
-    """Search past briefings. Example: briefing.py query "fed rate cut" """
-    cfg = load_config(Path(config))
-    log_dir = get_log_dir(cfg)
-
+def _run_query(log_dir: Path, query_text: str, limit: int) -> None:
     results = search_briefings(log_dir, query_text, limit)
 
     if not results:
@@ -336,6 +307,32 @@ def query(query_text: str, config: str, limit: int):
             table.add_row(r["date"], "briefing", "", r.get("excerpt", "")[:80])
 
     console.print(table)
+
+
+# ─────────────────────────────────────────────
+# DISPLAY
+# ─────────────────────────────────────────────
+
+
+def _display_briefing(
+    briefing_text: str,
+    market_data: list,
+    model: str,
+    article_count: int,
+    log_path,
+    cost: float,
+    stored_at: str | None = None,
+    date_str: str | None = None,
+) -> None:
+    alpaca_active = bool(os.getenv("ALPACA_KEY_ID"))
+
+    render_header(model, article_count, alpaca_active, stored_at=stored_at)
+
+    if market_data:
+        render_market_ticker(market_data)
+
+    render_briefing(briefing_text)
+    render_footer(log_path, cost)
 
 
 if __name__ == "__main__":

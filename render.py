@@ -9,13 +9,16 @@ Design language:
   - Attention block prominently surfaced
 """
 
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from rich import box
 from rich.console import Console
+from rich.console import Group
 from rich.markdown import Markdown
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -55,15 +58,24 @@ SECTION_COLOURS = {
 # ─────────────────────────────────────────────
 
 
-def render_header(model: str, article_count: int, alpaca_active: bool) -> None:
+def render_header(
+    model: str,
+    article_count: int,
+    alpaca_active: bool,
+    stored_at: str | None = None,
+) -> None:
     now = datetime.now(timezone.utc).strftime("%A %d %B %Y  ·  %H:%M UTC")
     alpaca = "[green]■ Alpaca[/]" if alpaca_active else "[dim]○ Alpaca[/]"
     sources = f"[dim]{article_count} articles[/]  {alpaca}  [dim]Claude/{model}[/]"
+    content = f"[bold white]  ◈  DAILY BRIEFING  ◈[/]\n[dim]{now}[/]\n{sources}"
+    if stored_at:
+        gen_time = stored_at[:16].replace("T", " ")
+        content += f"\n[dim]Generated {gen_time} UTC[/]"
 
     console.print()
     console.print(
         Panel(
-            f"[bold white]  ◈  DAILY BRIEFING  ◈[/]\n[dim]{now}[/]\n{sources}",
+            content,
             border_style="white",
             box=box.DOUBLE,
             padding=(0, 4),
@@ -89,9 +101,8 @@ def render_market_ticker(market_data: list[dict]) -> None:
         expand=True,
     )
 
-    # Split into two rows if many tickers
-    mid = (len(market_data) + 1) // 2
-    rows = [market_data[:mid], market_data[mid:]]
+    cols = 4
+    rows = [market_data[i : i + cols] for i in range(0, len(market_data), cols)]
 
     for row in rows:
         cells = []
@@ -144,8 +155,6 @@ def render_briefing(briefing_text: str) -> None:
 
 def _split_sections(text: str) -> list[tuple[str, str]]:
     """Split markdown ## sections into (header, body) pairs."""
-    import re
-
     parts = re.split(r"^(##\s+.+)$", text, flags=re.MULTILINE)
     results = []
 
@@ -160,38 +169,95 @@ def _split_sections(text: str) -> list[tuple[str, str]]:
     return results
 
 
+def _body_renderable(text: str) -> Group:
+    """Render body text, adding a blank line between consecutive bullet items."""
+    bullet_re = re.compile(r"^\s*[-*]\s")
+    lines = text.splitlines()
+    renderables = []
+    prose_buf: list[str] = []
+
+    def flush_prose() -> None:
+        if prose_buf:
+            renderables.append(Markdown("\n".join(prose_buf), justify="left"))
+            prose_buf.clear()
+
+    for line in lines:
+        if bullet_re.match(line):
+            flush_prose()
+            renderables.append(Padding(Markdown(line, justify="left"), (0, 0, 1, 0)))
+        else:
+            prose_buf.append(line)
+
+    flush_prose()
+    return Group(*renderables)
+
+
 def _render_section(header: str, body: str) -> None:
     if not header:
-        # Preamble text before first section
         if body:
             console.print(Markdown(body))
         return
 
-    # Determine colour from section name match
     colour = C["neutral"]
     for key, c in SECTION_COLOURS.items():
         if any(word in header.upper() for word in key.upper().split()):
             colour = c
             break
 
-    # Special sections
+    cleaned = re.sub(r"\n\s*---+\s*$", "", body.strip())
+    content = _body_renderable(cleaned) if cleaned else Text("")
+
     if "ACTION" in header.upper() or "ATTENTION" in header.upper():
         colour = C["attention"]
-        console.print(Rule(f"[{colour}]  ⚠  {header.upper()}  ⚠  [/]", style=colour))
+        console.print(
+            Panel(
+                content,
+                title=f"[{colour}]  ⚠  {header.upper()}  ⚠  [/]",
+                title_align="left",
+                border_style="red",
+                box=box.DOUBLE,
+                padding=(1, 2),
+                expand=True,
+            )
+        )
     elif "WATCH" in header.upper():
         colour = C["watchlist"]
-        console.print(Rule(f"[{colour}]  {header}  [/]", style=colour))
+        console.print(
+            Panel(
+                content,
+                title=f"[{colour}]  {header}  [/]",
+                title_align="left",
+                border_style="yellow",
+                box=box.ROUNDED,
+                padding=(1, 2),
+                expand=True,
+            )
+        )
     elif "STORY" in header.upper():
-        colour = C["header"]
-        console.print(Rule(f"[{colour}]  {header}  [/]", style=colour))
+        console.print(
+            Panel(
+                content,
+                title=f"[{C['header']}]  {header}  [/]",
+                title_align="left",
+                border_style="white",
+                box=box.ROUNDED,
+                padding=(1, 2),
+                expand=True,
+            )
+        )
     else:
-        console.print(Rule(f"[{colour}]  {header}  [/]", style=colour))
-
-    console.print()
-
-    if body:
-        # Render as markdown for bullet points, bold, etc.
-        console.print(Markdown(body, justify="left"))
+        border_style = colour.replace("bold ", "")
+        console.print(
+            Panel(
+                content,
+                title=f"[{colour}]  {header}  [/]",
+                title_align="left",
+                border_style=border_style,
+                box=box.ROUNDED,
+                padding=(1, 2),
+                expand=True,
+            )
+        )
 
     console.print()
 

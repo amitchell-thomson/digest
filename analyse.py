@@ -12,7 +12,9 @@ from anthropic.types import TextBlock
 
 
 def build_article_context(
-    sections: dict[str, list[dict]], run_date: str | None = None
+    sections: dict[str, list[dict]],
+    run_date: str | None = None,
+    market_data: list[dict] | None = None,
 ) -> str:
     """
     Serialise all fetched articles into a structured context block
@@ -22,6 +24,17 @@ def build_article_context(
     lines = ["# TODAY'S SOURCE MATERIAL\n"]
     if run_date:
         lines.append(f"**Briefing date: {run_date}**\n")
+
+    if market_data:
+        lines.append("## MARKET SNAPSHOT\n")
+        for item in market_data:
+            sign = "+" if item["change_pct"] >= 0 else ""
+            lines.append(
+                f"- {item['name']}: {item['price']} "
+                f"({item['direction']}{sign}{item['change_pct']:.2f}%)"
+            )
+        lines.append("")
+
     total = 0
 
     for section, articles in sections.items():
@@ -49,6 +62,7 @@ def run_analysis(
     model: str,
     max_tokens: int,
     run_date: str | None = None,
+    market_data: list[dict] | None = None,
 ) -> str:
     """
     Send all articles to Claude in a single call.
@@ -59,7 +73,7 @@ def run_analysis(
         raise ValueError("ANTHROPIC_API_KEY not set in environment / .env")
 
     client = anthropic.Anthropic(api_key=api_key)
-    context = build_article_context(sections, run_date)
+    context = build_article_context(sections, run_date, market_data)
 
     user_message = f"{context}\n\n---\n\n{prompt}"
 

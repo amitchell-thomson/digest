@@ -8,7 +8,7 @@ Outputs:
 
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -16,9 +16,10 @@ from pathlib import Path
 # SQLITE
 # ─────────────────────────────────────────────
 
+
 def get_db(log_dir: Path) -> sqlite3.Connection:
     db_path = log_dir / "briefings.db"
-    conn    = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     _init_schema(conn)
     return conn
@@ -70,8 +71,8 @@ def save_briefing(
     market_data: list[dict] | None = None,
 ) -> int:
     """Save briefing + articles to SQLite. Returns briefing row ID."""
-    article_count    = sum(len(v) for v in sections.values())
-    run_time         = datetime.utcnow().isoformat()
+    article_count = sum(len(v) for v in sections.values())
+    run_time = datetime.utcnow().isoformat()
     market_data_json = json.dumps(market_data or [])
 
     cur = conn.execute(
@@ -121,10 +122,10 @@ def load_briefing(conn: sqlite3.Connection, date_str: str) -> dict | None:
         return None
 
     return {
-        "briefing":      row["briefing"],
-        "market_data":   json.loads(row["market_data"] or "[]"),
-        "model":         row["model"] or "unknown",
-        "run_time":      row["run_time"],
+        "briefing": row["briefing"],
+        "market_data": json.loads(row["market_data"] or "[]"),
+        "model": row["model"] or "unknown",
+        "run_time": row["run_time"],
         "article_count": row["article_count"] or 0,
     }
 
@@ -137,9 +138,28 @@ def list_briefing_dates(conn: sqlite3.Connection) -> list[str]:
     return [r["date"] for r in rows]
 
 
+def get_recent_article_keys(conn: sqlite3.Connection, today: str, days: int = 1) -> set[str]:
+    """
+    Return title fingerprints (first 5 words, lowercase) of articles that
+    appeared in any briefing in the `days` preceding today. Excludes today's
+    own runs so same-day re-generation sees the full article set.
+    """
+    cutoff = (
+        datetime.strptime(today, "%Y-%m-%d") - timedelta(days=days)
+    ).strftime("%Y-%m-%d")
+    rows = conn.execute(
+        """SELECT a.title FROM articles a
+           JOIN briefings b ON a.briefing_id = b.id
+           WHERE b.date >= ? AND b.date < ?""",
+        (cutoff, today),
+    ).fetchall()
+    return {" ".join((r["title"] or "").lower().split()[:5]) for r in rows}
+
+
 # ─────────────────────────────────────────────
 # MARKDOWN LOG
 # ─────────────────────────────────────────────
+
 
 def save_markdown(
     log_dir: Path,
@@ -147,7 +167,7 @@ def save_markdown(
     briefing_text: str,
     market_data: list[dict],
 ) -> Path:
-    path  = log_dir / f"{date_str}.md"
+    path = log_dir / f"{date_str}.md"
     lines = [f"# Daily Briefing — {date_str}\n"]
 
     if market_data:
@@ -169,34 +189,48 @@ def save_markdown(
 # SEARCH
 # ─────────────────────────────────────────────
 
+
 def search_briefings(log_dir: Path, query: str, limit: int = 10) -> list[dict]:
     """Full-text search across stored briefing text and article titles."""
-    conn    = get_db(log_dir)
+    conn = get_db(log_dir)
     pattern = f"%{query}%"
 
-    article_rows = conn.execute("""
+    article_rows = conn.execute(
+        """
         SELECT b.date, a.section, a.title, a.url
         FROM articles a JOIN briefings b ON a.briefing_id = b.id
         WHERE a.title LIKE ? OR a.description LIKE ?
         ORDER BY b.date DESC LIMIT ?
-    """, (pattern, pattern, limit)).fetchall()
+    """,
+        (pattern, pattern, limit),
+    ).fetchall()
 
-    briefing_rows = conn.execute("""
+    briefing_rows = conn.execute(
+        """
         SELECT date, briefing FROM briefings
         WHERE briefing LIKE ?
         ORDER BY date DESC LIMIT ?
-    """, (pattern, limit)).fetchall()
+    """,
+        (pattern, limit),
+    ).fetchall()
 
     results = []
     for r in article_rows:
-        results.append({
-            "type": "article", "date": r["date"],
-            "section": r["section"], "title": r["title"], "url": r["url"],
-        })
+        results.append(
+            {
+                "type": "article",
+                "date": r["date"],
+                "section": r["section"],
+                "title": r["title"],
+                "url": r["url"],
+            }
+        )
     for r in briefing_rows:
         for line in r["briefing"].splitlines():
             if query.lower() in line.lower():
-                results.append({"type": "briefing", "date": r["date"], "excerpt": line.strip()})
+                results.append(
+                    {"type": "briefing", "date": r["date"], "excerpt": line.strip()}
+                )
                 break
 
     return results
