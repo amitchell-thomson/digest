@@ -1,0 +1,146 @@
+# ─────────────────────────────────────────────────────────────
+# briefing / config.yaml
+# All user-tunable settings. Edit freely.
+# ─────────────────────────────────────────────────────────────
+
+# ── Articles ──────────────────────────────────────────────────
+articles_per_section: 6
+max_description_chars: 1500
+
+# ── Claude ────────────────────────────────────────────────────
+claude:
+  model: "claude-sonnet-4-5"
+  max_tokens: 2000
+
+# ── Market data ───────────────────────────────────────────────
+market_tickers:
+  "S&P 500":   "^GSPC"
+  "NASDAQ":    "^IXIC"
+  "FTSE 100":  "^FTSE"
+  "DAX":       "^GDAXI"
+  "GBP/USD":   "GBPUSD=X"
+  "EUR/USD":   "EURUSD=X"
+  "BTC":       "BTC-USD"
+  "Gold":      "GC=F"
+  "Oil (WTI)": "CL=F"
+  "US 10Y":    "^TNX"
+
+# ── News sources ──────────────────────────────────────────────
+sources:
+  "MACRO & CENTRAL BANKS":
+    - "https://www.federalreserve.gov/feeds/press_all.xml"
+    - "https://www.bankofengland.co.uk/rss/publications"
+    - "https://www.ecb.europa.eu/rss/press.html"
+    - "https://www.bis.org/rss/press.rss"
+    - "https://calculatedriskblog.com/feeds/posts/default"
+    - "https://econbrowser.com/feed"
+    - "https://www.imf.org/en/News/rss"
+
+  "AI & TECHNOLOGY":
+    - "https://hnrss.org/frontpage?q=LLM+GPT+AI+Anthropic+OpenAI+DeepMind+Gemini"
+    - "https://hnrss.org/frontpage?q=machine+learning+model+release+benchmark"
+    - "https://hnrss.org/frontpage?q=software+engineering+compiler+framework"
+
+  "EQUITIES & MARKETS":
+    - "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=20&search_text=&output=atom"
+    - "https://alphaarchitect.com/feed/"
+    - "https://hnrss.org/frontpage?q=earnings+IPO+acquisition+merger+valuation"
+
+  "GEOPOLITICS & MACRO RISK":
+    - "https://hnrss.org/frontpage?q=tariff+sanctions+trade+war+geopolitics"
+    - "https://feeds.worldbank.org/worldbank/developmentnewsreleases"
+    - "https://marginalrevolution.com/feed"
+
+  "QUANT & FINTECH":
+    - "https://alphaarchitect.com/feed/"
+    - "https://hnrss.org/frontpage?q=quant+algorithmic+trading+factor+backtest+systematic"
+    - "https://hnrss.org/frontpage?q=fintech+market+microstructure+derivatives"
+
+# ── Analyst prompt ────────────────────────────────────────────
+prompt: |
+  You are a senior macro analyst and quant researcher writing a morning
+  briefing for an intermediate-level markets reader who trades equities
+  and derivatives and is learning quantitative strategies.
+
+  Your reader understands macro concepts but benefits from implications
+  being spelled out. They trade equities and options. They follow AI
+  closely from both technology and investment angles.
+  If today is quiet, say so explicitly — do not manufacture urgency.
+
+  Write the briefing in exactly this structure:
+
+  ## THE STORY TODAY
+  2-3 sentences. The single connecting narrative. If today is genuinely
+  fragmented, say so rather than forcing a false through-line.
+
+  ## MACRO & CENTRAL BANKS
+  Max 5 bullets. What happened + specific numbers + implication.
+  Flag any shifts in central bank language — word choices matter here.
+
+  ## AI & TECHNOLOGY
+  Max 4 bullets. Model releases, capability jumps, major company moves,
+  regulatory developments. Include investment angle where relevant.
+
+  ## EQUITIES & MARKETS
+  Max 4 bullets. Earnings surprises, M&A, sector moves. Be specific:
+  name companies, percentages, directions.
+
+  ## GEOPOLITICS & MACRO RISK
+  Max 3 bullets. Only include if there is a plausible near-term market
+  impact. Ignore noise.
+
+  ## QUANT & FINTECH
+  Max 3 bullets. Factor research, systematic strategy developments,
+  market structure changes.
+
+  ## WATCH LIST
+  3-5 items. Developing situations worth monitoring — not big news today
+  but worth tracking. Format: "ITEM — why it matters and what to watch for"
+
+  ## ⚠ ACTION / ATTENTION
+  Only include if something genuinely warrants attention today.
+  If nothing does, write exactly: "Nothing urgent today."
+
+  Rules:
+  - Specific numbers beat vague language ("yields rose 12bps" not "yields rose")
+  - Never invent data — write "details not disclosed" if specifics are absent
+  - No filler. No "it is worth noting". No "this could potentially".
+  - Briefly explain quant/derivatives concepts when central to a story
+  - Be blunt.
+
+# ── Urgency keywords ──────────────────────────────────────────
+urgent_keywords:
+  - crash
+  - collapse
+  - crisis
+  - default
+  - emergency
+  - rate hike
+  - rate cut
+  - black swan
+  - recession
+  - bankruptcy
+  - sanctions
+  - acquisition
+  - merger
+  - ipo
+  - hack
+  - ban
+  - shutdown
+  - layoffs
+  - contagion
+  - circuit breaker
+
+# ── Logging ───────────────────────────────────────────────────
+log:
+  enabled: true
+  directory: "~/.briefing_logs"
+
+# ── Alpaca Markets (optional) ─────────────────────────────────
+alpaca:
+  enabled: true     # Silently skips if keys not in .env
+  topics:
+    "MACRO & CENTRAL BANKS":  ["economy", "federal reserve", "interest rates", "inflation"]
+    "EQUITIES & MARKETS":     ["earnings", "merger", "acquisition", "IPO", "S&P 500"]
+    "GEOPOLITICS & MACRO RISK": ["trade", "tariffs", "sanctions", "geopolitics"]
+    "QUANT & FINTECH":        ["hedge fund", "algorithmic trading", "derivatives", "fintech"]
