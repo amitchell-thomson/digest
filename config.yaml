@@ -6,97 +6,120 @@
 # ── Articles ──────────────────────────────────────────────────
 articles_per_section: 6
 max_description_chars: 1500
-max_article_age_days: 3    # skip articles older than this; 3 catches Mon-Wed articles on Friday
+max_article_age_days: 3 # skip articles older than this; 3 catches Mon-Wed articles on Friday
 
 # ── Claude ────────────────────────────────────────────────────
 claude:
-  model: "claude-sonnet-4-5"
-  max_tokens: 2000
+  model: "claude-sonnet-4-6"
+  max_tokens: 3000
 
 # ── Market data ───────────────────────────────────────────────
 market_tickers:
-  "S&P 500":   "^GSPC"
-  "NASDAQ":    "^IXIC"
-  "FTSE 100":  "^FTSE"
-  "DAX":       "^GDAXI"
-  "GBP/USD":   "GBPUSD=X"
-  "EUR/USD":   "EURUSD=X"
-  "BTC":       "BTC-USD"
-  "Gold":      "GC=F"
+  "S&P 500": "^GSPC"
+  "NASDAQ": "^IXIC"
+  "FTSE 100": "^FTSE"
+  "DAX": "^GDAXI"
+  "GBP/USD": "GBPUSD=X"
+  "EUR/USD": "EURUSD=X"
+  "BTC": "BTC-USD"
+  "Gold": "GC=F"
   "Oil (WTI)": "CL=F"
-  "US 10Y":    "^TNX"
+  "US 10Y": "^TNX"
 
 # ── News sources ──────────────────────────────────────────────
 sources:
-  "MACRO & CENTRAL BANKS":
+  "WORLD NEWS":
+    - "http://feeds.bbci.co.uk/news/world/rss.xml"
+    - "https://www.aljazeera.com/xml/rss/all.xml"
+    - "https://www.theguardian.com/world/rss"
+    - "https://www.france24.com/en/rss"
+    - "https://www.scmp.com/rss/91/feed"
+    - "https://news.google.com/rss/search?q=when:24h+source:reuters&hl=en-US"
+
+  "POLITICS":
+    - "http://feeds.bbci.co.uk/news/politics/rss.xml"
+    - "https://www.theguardian.com/politics/rss"
+    - "https://feeds.npr.org/1014/rss.xml"
+    - "https://rss.politico.com/politics-news.xml"
+
+  "ECONOMICS & POLICY":
     - "https://www.federalreserve.gov/feeds/press_all.xml"
     - "https://www.bankofengland.co.uk/rss/publications"
     - "https://www.ecb.europa.eu/rss/press.html"
     - "https://www.bis.org/rss/press.rss"
+    - "https://www.imf.org/en/News/rss"
     - "https://calculatedriskblog.com/feeds/posts/default"
     - "https://econbrowser.com/feed"
-    - "https://www.imf.org/en/News/rss"
 
-  "AI & TECHNOLOGY":
-    - "https://hnrss.org/frontpage?q=LLM+GPT+AI+Anthropic+OpenAI+DeepMind+Gemini"
-    - "https://hnrss.org/frontpage?q=machine+learning+model+release+benchmark"
-    - "https://hnrss.org/frontpage?q=software+engineering+compiler+framework"
+  "SCIENCE & TECHNOLOGY":
+    - "https://feeds.arstechnica.com/arstechnica/index"
+    - "https://www.theverge.com/rss/index.xml"
+    - "https://www.technologyreview.com/feed/"
+    - "https://www.wired.com/feed/rss"
+    - "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
 
-  "EQUITIES & MARKETS":
+  "BUSINESS & MARKETS":
+    - "http://feeds.bbci.co.uk/news/business/rss.xml"
+    - "https://www.theguardian.com/business/rss"
     - "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=20&search_text=&output=atom"
-    - "https://alphaarchitect.com/feed/"
-    - "https://hnrss.org/frontpage?q=earnings+IPO+acquisition+merger+valuation"
+    - "https://news.google.com/rss/search?q=when:24h+earnings+OR+acquisition+OR+merger&hl=en-US"
 
-  "GEOPOLITICS & MACRO RISK":
-    - "https://hnrss.org/frontpage?q=tariff+sanctions+trade+war+geopolitics"
-    - "https://feeds.worldbank.org/worldbank/developmentnewsreleases"
-    - "https://marginalrevolution.com/feed"
-
-  "QUANT & FINTECH":
+  "QUANT RESEARCH":
     - "https://alphaarchitect.com/feed/"
-    - "https://hnrss.org/frontpage?q=quant+algorithmic+trading+factor+backtest+systematic"
-    - "https://hnrss.org/frontpage?q=fintech+market+microstructure+derivatives"
+    - "https://quantocracy.com/feed/"
+    - "https://robotwealth.com/feed/"
 
 # ── Analyst prompt ────────────────────────────────────────────
 prompt: |
-  You are a senior macro analyst and quant researcher writing a morning
-  briefing for an intermediate-level markets reader who trades equities
-  and derivatives and is learning quantitative strategies.
+  You are writing a morning briefing for a curious, sharp generalist who
+  is preparing for a career in quantitative finance. They want fast,
+  reliable awareness of what is happening in the world today — global
+  news first, financial markets second, quant research as a deliberate
+  side stream. They read this in the terminal in under five minutes.
 
-  Your reader understands macro concepts but benefits from implications
-  being spelled out. They trade equities and options. They follow AI
-  closely from both technology and investment angles.
-  If today is quiet, say so explicitly — do not manufacture urgency.
+  Tone: blunt, specific, no filler. If a section is genuinely thin, say
+  so explicitly rather than padding. If today is quiet, say so.
 
   Write the briefing in exactly this structure:
 
   ## THE STORY TODAY
-  2-3 sentences. The single connecting narrative. If today is genuinely
-  fragmented, say so rather than forcing a false through-line.
+  2-3 sentences. The single connecting narrative across the day's news.
+  If today is genuinely fragmented, say so rather than forcing a false
+  through-line.
 
-  ## MACRO & CENTRAL BANKS
-  Max 5 bullets. What happened + specific numbers + implication.
-  Flag any shifts in central bank language — word choices matter here.
+  ## WORLD NEWS
+  Max 5 bullets. The most important global events: conflicts, diplomacy,
+  major incidents, elections, humanitarian developments. Prefer
+  geographic breadth — do not let one country dominate unless one
+  country genuinely dominates the day.
 
-  ## AI & TECHNOLOGY
-  Max 4 bullets. Model releases, capability jumps, major company moves,
-  regulatory developments. Include investment angle where relevant.
+  ## POLITICS
+  Max 4 bullets. US, UK, EU and other major political developments —
+  legislation, leadership, elections, regulatory shifts. One clause of
+  context for foreign politicians the reader may not know.
 
-  ## EQUITIES & MARKETS
-  Max 4 bullets. Earnings surprises, M&A, sector moves. Be specific:
-  name companies, percentages, directions.
+  ## ECONOMICS & POLICY
+  Max 4 bullets. Central bank decisions, macro data releases, trade
+  policy, IMF/World Bank developments. Specific numbers + implication.
 
-  ## GEOPOLITICS & MACRO RISK
-  Max 3 bullets. Only include if there is a plausible near-term market
-  impact. Ignore noise.
+  ## SCIENCE & TECHNOLOGY
+  Max 4 bullets. AI model releases and capability shifts, scientific
+  breakthroughs, climate, energy, space, health. Investment angle when
+  relevant but the focus is the development itself.
 
-  ## QUANT & FINTECH
+  ## BUSINESS & MARKETS
+  Max 4 bullets. Earnings surprises, M&A, sector moves, major corporate
+  developments. Name companies and numbers explicitly.
+
+  ## QUANT RESEARCH
   Max 3 bullets. Factor research, systematic strategy developments,
-  market structure changes.
+  market microstructure, derivatives. Briefly explain the concept when
+  it is central to the bullet.
 
   ## WATCH LIST
-  3-5 items. Developing situations worth monitoring — not big news today
-  but worth tracking. Format: "ITEM — why it matters and what to watch for"
+  3-5 items. Developing situations worth monitoring — not headline news
+  today but worth tracking. Format: "ITEM — why it matters and what to
+  watch for"
 
   ## ⚠ ACTION / ATTENTION
   Only include if something genuinely warrants attention today.
@@ -106,7 +129,7 @@ prompt: |
   - Specific numbers beat vague language ("yields rose 12bps" not "yields rose")
   - Never invent data — write "details not disclosed" if specifics are absent
   - No filler. No "it is worth noting". No "this could potentially".
-  - Briefly explain quant/derivatives concepts when central to a story
+  - One clause of context for foreign actors/situations the reader may not know
   - Be blunt.
 
 # ── Urgency keywords ──────────────────────────────────────────
@@ -131,6 +154,11 @@ urgent_keywords:
   - layoffs
   - contagion
   - circuit breaker
+  - war
+  - invasion
+  - strike
+  - coup
+  - terror
 
 # ── Logging ───────────────────────────────────────────────────
 log:
@@ -139,9 +167,12 @@ log:
 
 # ── Alpaca Markets (optional) ─────────────────────────────────
 alpaca:
-  enabled: true     # Silently skips if keys not in .env
+  enabled: true # Silently skips if keys not in .env
   topics:
-    "MACRO & CENTRAL BANKS":  ["economy", "federal reserve", "interest rates", "inflation"]
-    "EQUITIES & MARKETS":     ["earnings", "merger", "acquisition", "IPO", "S&P 500"]
-    "GEOPOLITICS & MACRO RISK": ["trade", "tariffs", "sanctions", "geopolitics"]
-    "QUANT & FINTECH":        ["hedge fund", "algorithmic trading", "derivatives", "fintech"]
+    "ECONOMICS & POLICY":
+      ["economy", "federal reserve", "interest rates", "inflation"]
+    "BUSINESS & MARKETS":
+      ["earnings", "merger", "acquisition", "IPO", "S&P 500"]
+    "WORLD NEWS": ["trade", "tariffs", "sanctions", "geopolitics"]
+    "QUANT RESEARCH":
+      ["hedge fund", "algorithmic trading", "derivatives", "fintech"]

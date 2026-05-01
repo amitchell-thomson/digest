@@ -25,27 +25,28 @@ console = Console(highlight=False, width=120)
 
 # Colour scheme
 C = {
-    "header":    "bold white",
-    "dim":       "dim white",
+    "header": "bold white",
+    "dim": "dim white",
     "ticker_up": "bold green",
     "ticker_dn": "bold red",
     "ticker_nm": "dim white",
-    "macro":     "bold yellow",
-    "ai":        "bold cyan",
-    "equities":  "bold blue",
-    "geo":       "bold magenta",
-    "quant":     "bold green",
+    "macro": "bold yellow",
+    "ai": "bold cyan",
+    "equities": "bold blue",
+    "geo": "bold magenta",
+    "quant": "bold green",
     "attention": "bold red",
     "watchlist": "bold yellow",
-    "neutral":   "white",
+    "neutral": "white",
 }
 
 SECTION_COLOURS = {
-    "MACRO & CENTRAL BANKS":   C["macro"],
-    "AI & TECHNOLOGY":         C["ai"],
-    "EQUITIES & MARKETS":      C["equities"],
-    "GEOPOLITICS & MACRO RISK": C["geo"],
-    "QUANT & FINTECH":         C["quant"],
+    "WORLD NEWS": C["geo"],
+    "POLITICS": C["macro"],
+    "ECONOMICS & POLICY": C["macro"],
+    "SCIENCE & TECHNOLOGY": C["ai"],
+    "BUSINESS & MARKETS": C["equities"],
+    "QUANT RESEARCH": C["quant"],
 }
 
 
@@ -53,9 +54,10 @@ SECTION_COLOURS = {
 # HEADER
 # ─────────────────────────────────────────────
 
+
 def render_header(model: str, article_count: int, alpaca_active: bool) -> None:
-    now     = datetime.now(timezone.utc).strftime("%A %d %B %Y  ·  %H:%M UTC")
-    alpaca  = "[green]■ Alpaca[/]" if alpaca_active else "[dim]○ Alpaca[/]"
+    now = datetime.now(timezone.utc).strftime("%A %d %B %Y  ·  %H:%M UTC")
+    alpaca = "[green]■ Alpaca[/]" if alpaca_active else "[dim]○ Alpaca[/]"
     sources = f"[dim]{article_count} articles[/]  {alpaca}  [dim]Claude/{model}[/]"
 
     console.print()
@@ -75,6 +77,7 @@ def render_header(model: str, article_count: int, alpaca_active: bool) -> None:
 # MARKET TICKER BAR
 # ─────────────────────────────────────────────
 
+
 def render_market_ticker(market_data: list[dict]) -> None:
     if not market_data:
         return
@@ -93,12 +96,14 @@ def render_market_ticker(market_data: list[dict]) -> None:
     for row in rows:
         cells = []
         for item in row:
-            sign   = "+" if item["change_pct"] >= 0 else ""
+            sign = "+" if item["change_pct"] >= 0 else ""
             colour = item["colour"]
-            cell   = Text()
+            cell = Text()
             cell.append(f"{item['name']} ", style="dim white")
             cell.append(f"{item['price']} ", style=f"bold {colour}")
-            cell.append(f"{item['direction']}{sign}{item['change_pct']:.2f}%", style=colour)
+            cell.append(
+                f"{item['direction']}{sign}{item['change_pct']:.2f}%", style=colour
+            )
             cells.append(cell)
 
         if cells:
@@ -121,6 +126,7 @@ def render_market_ticker(market_data: list[dict]) -> None:
 # BRIEFING BODY
 # ─────────────────────────────────────────────
 
+
 def render_briefing(briefing_text: str) -> None:
     """
     Render the Claude briefing. Parse section headers to apply
@@ -139,7 +145,8 @@ def render_briefing(briefing_text: str) -> None:
 def _split_sections(text: str) -> list[tuple[str, str]]:
     """Split markdown ## sections into (header, body) pairs."""
     import re
-    parts   = re.split(r"^(##\s+.+)$", text, flags=re.MULTILINE)
+
+    parts = re.split(r"^(##\s+.+)$", text, flags=re.MULTILINE)
     results = []
 
     if parts[0].strip():
@@ -147,7 +154,7 @@ def _split_sections(text: str) -> list[tuple[str, str]]:
 
     for i in range(1, len(parts), 2):
         header = parts[i].lstrip("# ").strip()
-        body   = parts[i + 1].strip() if i + 1 < len(parts) else ""
+        body = parts[i + 1].strip() if i + 1 < len(parts) else ""
         results.append((header, body))
 
     return results
@@ -193,6 +200,7 @@ def _render_section(header: str, body: str) -> None:
 # FOOTER
 # ─────────────────────────────────────────────
 
+
 def render_footer(log_path: Optional[Path], cost_estimate: float) -> None:
     parts = []
     if log_path:
@@ -203,4 +211,3 @@ def render_footer(log_path: Optional[Path], cost_estimate: float) -> None:
     line = "  ·  ".join(parts) if parts else ""
     console.print(Rule(line, style="dim"))
     console.print()
-
