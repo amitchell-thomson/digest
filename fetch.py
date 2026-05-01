@@ -13,13 +13,26 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlparse
 
 import httpx
+import trafilatura
 import yfinance as yf
 
 ALPACA_NEWS_URL = "https://data.alpaca.markets/v1beta1/news"
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; briefing-cli/1.0; personal-use)"}
+
+# Domains where RSS descriptions are too thin — we fetch and extract the full body
+ENRICH_DOMAINS = frozenset(
+    {
+        "federalreserve.gov",
+        "bankofengland.co.uk",
+        "ecb.europa.eu",
+        "bis.org",
+        "imf.org",
+    }
+)
 
 
 # ─────────────────────────────────────────────
@@ -29,6 +42,33 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; briefing-cli/1.0; personal-us
 
 def strip_html(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
+def _should_enrich(url: str) -> bool:
+    """True if the URL is from a high-signal source whose RSS body is too thin."""
+    try:
+        host = urlparse(url).netloc.lower()
+        return any(d in host for d in ENRICH_DOMAINS)
+    except Exception:
+        return False
+
+
+def _fetch_body(url: str, max_chars: int) -> str | None:
+    """Fetch a URL and extract clean article text. Returns None on any failure."""
+    try:
+        resp = httpx.get(url, timeout=10, follow_redirects=True, headers=HEADERS)
+        resp.raise_for_status()
+        text = trafilatura.extract(
+            resp.text,
+            include_comments=False,
+            include_tables=False,
+            no_fallback=False,
+        )
+        if text and len(text) > 80:
+            return text[:max_chars]
+    except Exception:
+        pass
+    return None
 
 
 def parse_pub_date(pub: str) -> datetime | None:
@@ -111,6 +151,12 @@ def fetch_feed(
             or (atom_link is not None and atom_link.get("href"))
             or ""
         ).strip()
+
+        # For central-bank sources, replace the thin RSS summary with the full article body
+        if link and _should_enrich(link):
+            body = _fetch_body(link, max_chars)
+            if body:
+                desc = body
 
         pub_display = pub_dt.strftime("%Y-%m-%d %H:%M UTC") if pub_dt else pub_raw[:22]
 
@@ -223,58 +269,47 @@ def fetch_alpaca_section(
 
 def fetch_market_snapshot(tickers: dict[str, str]) -> list[dict]:
     """
-    Fetch current price + day change for a set of tickers via yfinance.
-    Returns list of dicts: {name, price, change_pct, direction}
+    Fetch current price + day change for a set of tickers via yfinance fast_info.
+    Uses per-ticker fast_info calls in parallel — gives the most recent price
+    available (intraday for open markets, last close for closed markets).
     Falls back gracefully per-ticker if data unavailable.
     """
-    results = []
-    # Batch download is faster than individual calls
-    symbols = list(tickers.values())
 
-    try:
-        data = yf.download(
-            symbols,
-            period="2d",
-            interval="1d",
-            progress=False,
-            auto_adjust=True,
-        )
-    except Exception:
-        return []
-
-    if data is None:
-        return []
-
-    for name, symbol in tickers.items():
+    def _fetch_one(name: str, symbol: str) -> dict | None:
         try:
-            closes = data["Close"][symbol].dropna()  # type: ignore[index]
-            if len(closes) < 2:
-                continue
-            prev_close = float(closes.iloc[-2])
-            curr_close = float(closes.iloc[-1])
-            change_pct = ((curr_close - prev_close) / prev_close) * 100
+            fi = yf.Ticker(symbol).fast_info
+            curr = fi.last_price
+            prev = fi.previous_close
+            if curr is None or prev is None or prev == 0:
+                return None
+            change_pct = ((curr - prev) / prev) * 100
             direction = "▲" if change_pct >= 0 else "▼"
-
-            # Format price sensibly
-            if curr_close > 1000:
-                price_str = f"{curr_close:,.0f}"
-            elif curr_close > 10:
-                price_str = f"{curr_close:,.2f}"
+            if curr > 1000:
+                price_str = f"{curr:,.0f}"
+            elif curr > 10:
+                price_str = f"{curr:,.2f}"
             else:
-                price_str = f"{curr_close:.4f}"
-
-            results.append(
-                {
-                    "name": name,
-                    "price": price_str,
-                    "change_pct": change_pct,
-                    "direction": direction,
-                    "colour": "green" if change_pct >= 0 else "red",
-                }
-            )
+                price_str = f"{curr:.4f}"
+            return {
+                "name": name,
+                "price": price_str,
+                "change_pct": change_pct,
+                "direction": direction,
+                "colour": "green" if change_pct >= 0 else "red",
+            }
         except Exception:
-            continue
+            return None
 
+    order = {name: i for i, name in enumerate(tickers.keys())}
+    results = []
+    with ThreadPoolExecutor(max_workers=min(len(tickers), 8)) as ex:
+        futures = {ex.submit(_fetch_one, name, sym): name for name, sym in tickers.items()}
+        for f in as_completed(futures):
+            result = f.result()
+            if result:
+                results.append(result)
+
+    results.sort(key=lambda x: order.get(x["name"], 999))
     return results
 
 
