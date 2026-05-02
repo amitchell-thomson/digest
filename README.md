@@ -24,6 +24,8 @@ WATCH LIST             — developing situations to track
 ```
 
 Plus a live market ticker (S&P, NASDAQ, FTSE, DAX, FX, BTC, gold, oil, US 10Y) at the top of every read.
+
+### Example output
 ![Alt text](example1.png)
 ![Alt text](example2.png)
 
