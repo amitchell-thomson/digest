@@ -11,7 +11,7 @@ max_article_age_days: 3 # skip articles older than this; 3 catches Mon-Wed artic
 # ── Claude ────────────────────────────────────────────────────
 claude:
   model: "claude-sonnet-4-6"
-  max_tokens: 3000
+  max_tokens: 4000
 
 # ── Market data ───────────────────────────────────────────────
 market_tickers:
@@ -128,6 +128,7 @@ prompt: |
 
   Rules:
   - Specific numbers beat vague language ("yields rose 12bps" not "yields rose")
+  - Where the significance of an event isn't obvious, add one clause: what it signals, changes, or risks.
   - Never invent data — write "details not disclosed" if specifics are absent
   - No filler. No "it is worth noting". No "this could potentially".
   - One clause of context for foreign actors/situations the reader may not know
