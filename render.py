@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from rich import box
+from rich.align import Align
 from rich.console import Console
 from rich.console import Group
 from rich.markdown import Markdown
@@ -58,6 +59,15 @@ SECTION_COLOURS = {
 # ─────────────────────────────────────────────
 
 
+ASCII_TITLE = """\
+██████╗ ██╗ ██████╗ ███████╗███████╗████████╗
+██╔══██╗██║██╔════╝ ██╔════╝██╔════╝╚══██╔══╝
+██║  ██║██║██║  ███╗█████╗  ███████╗   ██║
+██║  ██║██║██║   ██║██╔══╝  ╚════██║   ██║
+██████╔╝██║╚██████╔╝███████╗███████║   ██║
+╚═════╝ ╚═╝ ╚═════╝ ╚══════╝╚══════╝   ╚═╝   """
+
+
 def render_header(
     model: str,
     article_count: int,
@@ -65,20 +75,22 @@ def render_header(
     stored_at: str | None = None,
 ) -> None:
     now = datetime.now(timezone.utc).strftime("%A %d %B %Y  ·  %H:%M UTC")
-    alpaca = "[green]■ Alpaca[/]" if alpaca_active else "[dim]○ Alpaca[/]"
-    sources = f"[dim]{article_count} articles[/]  {alpaca}  [dim]Claude/{model}[/]"
-    content = f"[bold white]  ◈  DAILY BRIEFING  ◈[/]\n[dim]{now}[/]\n{sources}"
+
+    title_text = Align.center(Text(ASCII_TITLE, style="bold white"))
+
+    meta_parts = [now, f"{article_count} articles", f"Claude/{model}"]
     if stored_at:
         gen_time = stored_at[:16].replace("T", " ")
-        content += f"\n[dim]Generated {gen_time} UTC[/]"
+        meta_parts.insert(1, f"Generated {gen_time} UTC")
+    meta_line = Align.center(Text("  ·  ".join(meta_parts), style="dim white"))
 
     console.print()
     console.print(
         Panel(
-            content,
+            Group(title_text, meta_line),
             border_style="white",
-            box=box.DOUBLE,
-            padding=(0, 4),
+            box=box.HEAVY,
+            padding=(1, 4),
             expand=True,
         )
     )

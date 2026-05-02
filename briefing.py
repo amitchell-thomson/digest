@@ -88,6 +88,7 @@ def get_log_dir(cfg: dict) -> Path:
 @click.option("--list", "list_dates", is_flag=True, help="List all stored briefing dates.")
 @click.option("--config", "-c", default=str(Path(__file__).parent / "config.yaml"), hidden=True)
 @click.option("--limit", "-n", default=10, show_default=True, help="Max results for --query.")
+@click.option("--tui", is_flag=True, help="Browse briefing in interactive TUI.")
 def cli(
     generate: bool,
     dry_run: bool,
@@ -98,6 +99,7 @@ def cli(
     list_dates: bool,
     config: str,
     limit: int,
+    tui: bool,
 ):
     """Daily executive news briefing."""
 
@@ -149,6 +151,7 @@ def cli(
                 cost=0.0,
                 stored_at=row["run_time"],
                 date_str=date_str,
+                use_tui=tui,
             )
         return
 
@@ -182,6 +185,7 @@ def cli(
         cost=0.0,
         stored_at=row["run_time"],
         date_str=display_date,
+        use_tui=tui,
     )
 
 
@@ -323,9 +327,14 @@ def _display_briefing(
     cost: float,
     stored_at: str | None = None,
     date_str: str | None = None,
+    use_tui: bool = False,
 ) -> None:
-    alpaca_active = bool(os.getenv("ALPACA_KEY_ID"))
+    if use_tui:
+        from tui import launch_tui
+        launch_tui(briefing_text, market_data, model, article_count, stored_at=stored_at)
+        return
 
+    alpaca_active = bool(os.getenv("ALPACA_KEY_ID"))
     render_header(model, article_count, alpaca_active, stored_at=stored_at)
 
     if market_data:
