@@ -25,10 +25,13 @@ _TRANSPARENT_THEME = Theme(
     name="digest",
     primary="#ffffff",
     dark=True,
-    background="transparent",
-    surface="transparent",
-    panel="transparent",
-    boost="transparent",
+    variables={
+        "background": "ansi_default",
+        "surface": "ansi_default",
+        "panel": "ansi_default",
+        "block-cursor-blurred-background": "ansi_default",
+        "block-hover-background": "ansi_default",
+    },
 )
 
 
@@ -119,7 +122,7 @@ class DigestTUI(App):
     CSS = """
     Screen, Horizontal, Vertical, ScrollableContainer,
     ListView, ListItem, Static, Label {
-        background: transparent;
+        background: ansi_default;
     }
 
     #header {
@@ -158,11 +161,11 @@ class DigestTUI(App):
     }
 
     ListItem:hover {
-        background: $surface-lighten-1;
+        background: $primary 8%;
     }
 
     ListItem.--highlight {
-        background: $primary-background;
+        background: $primary 18%;
     }
     """
     TITLE = "Digest"
