@@ -16,9 +16,20 @@ from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, ScrollableContainer
+from textual.theme import Theme
 from textual.widgets import Label, ListItem, ListView, Static
 
 from render import ASCII_TITLE, SECTION_COLOURS, _body_renderable, _split_sections
+
+_TRANSPARENT_THEME = Theme(
+    name="digest",
+    primary="#ffffff",
+    dark=True,
+    background="transparent",
+    surface="transparent",
+    panel="transparent",
+    boost="transparent",
+)
 
 
 # ─────────────────────────────────────────────
@@ -106,6 +117,11 @@ def _overview_renderable(market_data: list[dict], story_body: str) -> Group:
 class DigestTUI(App):
     CSS_PATH = None
     CSS = """
+    Screen, Horizontal, Vertical, ScrollableContainer,
+    ListView, ListItem, Static, Label {
+        background: transparent;
+    }
+
     #header {
         height: auto;
         border: heavy white;
@@ -139,7 +155,6 @@ class DigestTUI(App):
 
     ListItem {
         padding: 0 1;
-        background: transparent;
     }
 
     ListItem:hover {
@@ -196,10 +211,8 @@ class DigestTUI(App):
         yield Static(id="footer")
 
     def on_mount(self) -> None:
-        # Inline styles beat the entire CSS cascade, including Textual's theme defaults.
-        self.screen.styles.background = "transparent"
-        for widget in self.query("Horizontal, Vertical, ScrollableContainer, Static, ListView"):
-            widget.styles.background = "transparent"
+        self.register_theme(_TRANSPARENT_THEME)
+        self.theme = "digest"
 
         now = datetime.now(timezone.utc).strftime("%A %d %B %Y  ·  %H:%M UTC")
         meta_parts = [now, f"{self._article_count} articles", f"Claude/{self._model}"]
