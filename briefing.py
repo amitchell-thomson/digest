@@ -3,7 +3,8 @@
 digest — Daily executive news briefing for the terminal.
 
 Usage:
-    digest                          # Show most recent briefing (instant)
+    digest                          # Browse most recent briefing in TUI (instant)
+    digest --flat                   # Show most recent briefing as flat text
     digest --date 2026-04-28        # Show a specific date
     digest --list                   # List all stored briefing dates
     digest --query "fed rate"       # Search past briefings
@@ -22,7 +23,9 @@ from pathlib import Path
 import click
 import yaml
 from dotenv import load_dotenv
+from rich import box
 from rich.console import Console
+from rich.table import Table
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -79,16 +82,36 @@ def get_log_dir(cfg: dict) -> Path:
 
 
 @click.command()
-@click.option("--generate", is_flag=True, help="Fetch news, call Claude, store result. For cron.")
-@click.option("--dry-run", is_flag=True, help="With --generate: fetch only, skip Claude call.")
-@click.option("--no-market", is_flag=True, help="With --generate: skip live market data.")
+@click.option(
+    "--generate", is_flag=True, help="Fetch news, call Claude, store result. For cron."
+)
+@click.option(
+    "--dry-run", is_flag=True, help="With --generate: fetch only, skip Claude call."
+)
+@click.option(
+    "--no-market", is_flag=True, help="With --generate: skip live market data."
+)
 @click.option("--no-log", is_flag=True, help="With --generate: don't save to disk.")
-@click.option("--query", "-q", default=None, metavar="TEXT", help="Search past briefings.")
-@click.option("--date", "-d", default=None, metavar="YYYY-MM-DD", help="Show briefing for a specific date.")
-@click.option("--list", "list_dates", is_flag=True, help="List all stored briefing dates.")
-@click.option("--config", "-c", default=str(Path(__file__).parent / "config.yaml"), hidden=True)
-@click.option("--limit", "-n", default=10, show_default=True, help="Max results for --query.")
-@click.option("--tui", is_flag=True, help="Browse briefing in interactive TUI.")
+@click.option(
+    "--query", "-q", default=None, metavar="TEXT", help="Search past briefings."
+)
+@click.option(
+    "--date",
+    "-d",
+    default=None,
+    metavar="YYYY-MM-DD",
+    help="Show briefing for a specific date.",
+)
+@click.option(
+    "--list", "list_dates", is_flag=True, help="List all stored briefing dates."
+)
+@click.option(
+    "--config", "-c", default=str(Path(__file__).parent / "config.yaml"), hidden=True
+)
+@click.option(
+    "--limit", "-n", default=10, show_default=True, help="Max results for --query."
+)
+@click.option("--flat", is_flag=True, help="Render briefing as plain text instead of TUI.")
 def cli(
     generate: bool,
     dry_run: bool,
@@ -99,7 +122,7 @@ def cli(
     list_dates: bool,
     config: str,
     limit: int,
-    tui: bool,
+    flat: bool,
 ):
     """Daily executive news briefing."""
 
@@ -138,9 +161,13 @@ def cli(
             dates = list_briefing_dates(conn)
             if dates:
                 console.print(f"[yellow]No briefing found for {date_str}.[/]")
-                console.print(f"[dim]Most recent: {dates[0]}  →  digest --date {dates[0]}[/]")
+                console.print(
+                    f"[dim]Most recent: {dates[0]}  →  digest --date {dates[0]}[/]"
+                )
             else:
-                console.print("[yellow]No briefings stored yet. Run: digest --generate[/]")
+                console.print(
+                    "[yellow]No briefings stored yet. Run: digest --generate[/]"
+                )
         else:
             _display_briefing(
                 briefing_text=row["briefing"],
@@ -151,7 +178,8 @@ def cli(
                 cost=0.0,
                 stored_at=row["run_time"],
                 date_str=date_str,
-                use_tui=tui,
+                use_tui=not flat,
+                conn=conn,
             )
         return
 
@@ -185,7 +213,8 @@ def cli(
         cost=0.0,
         stored_at=row["run_time"],
         date_str=display_date,
-        use_tui=tui,
+        use_tui=not flat,
+        conn=conn,
     )
 
 
@@ -267,7 +296,9 @@ def _run_generate(cfg: dict, no_market: bool, no_log: bool, dry_run: bool) -> No
 
     log_path = None
     if not no_log and conn:
-        save_briefing(conn, date_str, briefing_text, sections, urgent_titles, model, market_data)
+        save_briefing(
+            conn, date_str, briefing_text, sections, urgent_titles, model, market_data
+        )
         log_path = save_markdown(log_dir, date_str, briefing_text, market_data)
 
     console.print(
@@ -290,10 +321,7 @@ def _run_query(log_dir: Path, query_text: str, limit: int) -> None:
         console.print(f"[dim]No results for:[/] {query_text}")
         return
 
-    from rich import box as rbox
-    from rich.table import Table
-
-    table = Table(box=rbox.SIMPLE, show_header=True, header_style="bold white")
+    table = Table(box=box.SIMPLE, show_header=True, header_style="bold white")
     table.add_column("Date", style="dim", width=12)
     table.add_column("Type", style="dim", width=10)
     table.add_column("Section", style="cyan", width=24)
@@ -328,10 +356,21 @@ def _display_briefing(
     stored_at: str | None = None,
     date_str: str | None = None,
     use_tui: bool = False,
+    conn=None,
 ) -> None:
     if use_tui:
         from tui import launch_tui
-        launch_tui(briefing_text, market_data, model, article_count, stored_at=stored_at)
+
+        launch_tui(
+            briefing_text,
+            market_data,
+            model,
+            article_count,
+            stored_at=stored_at,
+            conn=conn,
+            dates=list_briefing_dates(conn) if conn else [],
+            date_str=date_str,
+        )
         return
 
     alpaca_active = bool(os.getenv("ALPACA_KEY_ID"))

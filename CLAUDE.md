@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv sync
 
 # Run briefing commands
-uv run digest                          # Show most recent briefing — instant, no API call
+uv run digest                          # Browse most recent briefing in TUI — instant, no API call
+uv run digest --flat                   # Show most recent briefing as flat text
 uv run digest --date 2026-04-28        # Show a specific past date
 uv run digest --list                   # List all stored briefing dates
 uv run digest --query "fed rate"       # Search past briefings + article titles
