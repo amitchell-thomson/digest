@@ -27,7 +27,6 @@ Plus a live market ticker (S&P, NASDAQ, FTSE, DAX, FX, BTC, gold, oil, US 10Y) a
 
 ### Example output
 ![Alt text](example1.png)
-![Alt text](example2.png)
 
 ---
 
