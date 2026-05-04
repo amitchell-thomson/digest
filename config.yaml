@@ -122,7 +122,7 @@ prompt: |
   not headline news today but worth tracking. Format: "ITEM — why it matters
   and what to watch for"
 
-  ## ⚠ ACTION / ATTENTION
+  ## ACTION / ATTENTION
   Only include if something genuinely warrants attention today.
   If nothing does, write exactly: "Nothing urgent today."
 

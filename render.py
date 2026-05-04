@@ -12,12 +12,10 @@ Design language:
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 from rich import box
 from rich.align import Align
-from rich.console import Console
-from rich.console import Group
+from rich.console import Console, Group
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
@@ -130,7 +128,7 @@ def render_market_ticker(market_data: list[dict]) -> None:
             cells.append(cell)
 
         if cells:
-            table.add_row(*[c for c in cells])
+            table.add_row(*cells)
 
     console.print(
         Panel(
@@ -279,7 +277,7 @@ def _render_section(header: str, body: str) -> None:
 # ─────────────────────────────────────────────
 
 
-def render_footer(log_path: Optional[Path], cost_estimate: float) -> None:
+def render_footer(log_path: Path | None, cost_estimate: float) -> None:
     parts = []
     if log_path:
         parts.append(f"[dim]log → {log_path}[/]")

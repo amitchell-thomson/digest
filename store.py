@@ -138,15 +138,17 @@ def list_briefing_dates(conn: sqlite3.Connection) -> list[str]:
     return [r["date"] for r in rows]
 
 
-def get_recent_article_keys(conn: sqlite3.Connection, today: str, days: int = 1) -> set[str]:
+def get_recent_article_keys(
+    conn: sqlite3.Connection, today: str, days: int = 1
+) -> set[str]:
     """
     Return title fingerprints (first 5 words, lowercase) of articles that
     appeared in any briefing in the `days` preceding today. Excludes today's
     own runs so same-day re-generation sees the full article set.
     """
-    cutoff = (
-        datetime.strptime(today, "%Y-%m-%d") - timedelta(days=days)
-    ).strftime("%Y-%m-%d")
+    cutoff = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=days)).strftime(
+        "%Y-%m-%d"
+    )
     rows = conn.execute(
         """SELECT a.title FROM articles a
            JOIN briefings b ON a.briefing_id = b.id

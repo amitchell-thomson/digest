@@ -303,7 +303,9 @@ def fetch_market_snapshot(tickers: dict[str, str]) -> list[dict]:
     order = {name: i for i, name in enumerate(tickers.keys())}
     results = []
     with ThreadPoolExecutor(max_workers=min(len(tickers), 8)) as ex:
-        futures = {ex.submit(_fetch_one, name, sym): name for name, sym in tickers.items()}
+        futures = {
+            ex.submit(_fetch_one, name, sym): name for name, sym in tickers.items()
+        }
         for f in as_completed(futures):
             result = f.result()
             if result:

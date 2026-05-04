@@ -99,26 +99,3 @@ def run_analysis(
 def is_urgent(text: str, keywords: list[str]) -> bool:
     lower = text.lower()
     return any(kw.lower() in lower for kw in keywords)
-
-
-def extract_attention_items(briefing_text: str) -> list[str]:
-    """
-    Pull items from the ⚠ ACTION / ATTENTION section of the briefing.
-    Used to surface the attention block in the terminal header.
-    """
-    lines = briefing_text.splitlines()
-    in_section = False
-    items = []
-
-    for line in lines:
-        if "ACTION" in line.upper() or "ATTENTION" in line.upper():
-            in_section = True
-            continue
-        if in_section:
-            if line.startswith("## "):
-                break
-            stripped = line.strip("- •*").strip()
-            if stripped and "nothing urgent" not in stripped.lower():
-                items.append(stripped)
-
-    return items
