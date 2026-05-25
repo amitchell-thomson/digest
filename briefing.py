@@ -43,6 +43,7 @@ from store import (  # noqa: E402
     get_recent_article_keys,
     list_briefing_dates,
     load_briefing,
+    load_recent_context,
     save_briefing,
     save_markdown,
     search_briefings,
@@ -111,7 +112,9 @@ def get_log_dir(cfg: dict) -> Path:
 @click.option(
     "--limit", "-n", default=10, show_default=True, help="Max results for --query."
 )
-@click.option("--flat", is_flag=True, help="Render briefing as plain text instead of TUI.")
+@click.option(
+    "--flat", is_flag=True, help="Render briefing as plain text instead of TUI."
+)
 def cli(
     generate: bool,
     dry_run: bool,
@@ -255,6 +258,7 @@ def _run_generate(cfg: dict, no_market: bool, no_log: bool, dry_run: bool) -> No
             market_data = fetch_market_snapshot(tickers)
 
     conn = None
+    recent_context = None
     if not no_log:
         conn = get_db(log_dir)
         recent_keys = get_recent_article_keys(conn, today=date_str)
@@ -267,6 +271,7 @@ def _run_generate(cfg: dict, no_market: bool, no_log: bool, dry_run: bool) -> No
             for section, arts in sections.items()
         }
         total_articles = sum(len(v) for v in sections.values())
+        recent_context = load_recent_context(conn, today=date_str)
 
     all_titles = [a["title"] for arts in sections.values() for a in arts]
     urgent_titles = [t for t in all_titles if is_urgent(t, urgent_kws)]
@@ -289,6 +294,7 @@ def _run_generate(cfg: dict, no_market: bool, no_log: bool, dry_run: bool) -> No
                 max_tokens=max_tokens,
                 run_date=date_str,
                 market_data=market_data,
+                recent_context=recent_context,
             )
         except Exception as e:
             err_console.print(f"[red]Claude API error:[/] {e}")

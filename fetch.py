@@ -277,7 +277,8 @@ def fetch_market_snapshot(tickers: dict[str, str]) -> list[dict]:
 
     def _fetch_one(name: str, symbol: str) -> dict | None:
         try:
-            fi = yf.Ticker(symbol).fast_info
+            ticker = yf.Ticker(symbol)
+            fi = ticker.fast_info
             curr = fi.last_price
             prev = fi.previous_close
             if curr is None or prev is None or prev == 0:
@@ -290,12 +291,15 @@ def fetch_market_snapshot(tickers: dict[str, str]) -> list[dict]:
                 price_str = f"{curr:,.2f}"
             else:
                 price_str = f"{curr:.4f}"
+            hist_df = ticker.history(period="3mo", interval="1d")
+            history = hist_df["Close"].dropna().tolist() if not hist_df.empty else []
             return {
                 "name": name,
                 "price": price_str,
                 "change_pct": change_pct,
                 "direction": direction,
                 "colour": "green" if change_pct >= 0 else "red",
+                "history": history,
             }
         except Exception:
             return None

@@ -138,6 +138,64 @@ def list_briefing_dates(conn: sqlite3.Connection) -> list[str]:
     return [r["date"] for r in rows]
 
 
+def _extract_section(briefing: str, section_name: str) -> str:
+    """Extract content of a markdown ## section, stopping at the next ## heading."""
+    lines = briefing.splitlines()
+    in_section = False
+    content: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("##") and section_name.upper() in stripped.upper():
+            in_section = True
+            continue
+        if in_section:
+            if stripped.startswith("##"):
+                break
+            content.append(line)
+    return "\n".join(content).strip()
+
+
+def load_recent_context(conn: sqlite3.Connection, today: str, n_days: int = 7) -> str:
+    """
+    Extract THE STORY TODAY and WATCH LIST from the last n_days of briefings.
+    Injected into the Claude context so it reasons about ongoing situations correctly
+    rather than from stale training data.
+    """
+    cutoff = (datetime.strptime(today, "%Y-%m-%d") - timedelta(days=n_days)).strftime(
+        "%Y-%m-%d"
+    )
+    rows = conn.execute(
+        """SELECT date, briefing FROM briefings
+           WHERE date >= ? AND date < ?
+           ORDER BY date ASC""",
+        (cutoff, today),
+    ).fetchall()
+
+    if not rows:
+        return ""
+
+    parts = []
+    for row in rows:
+        story = _extract_section(row["briefing"], "THE STORY TODAY")
+        watch = _extract_section(row["briefing"], "WATCH LIST")
+        if story or watch:
+            entry = [f"### {row['date']}"]
+            if story:
+                entry.append(f"**Story:** {story}")
+            if watch:
+                entry.append(f"**Watch list:**\n{watch}")
+            parts.append("\n".join(entry))
+
+    if not parts:
+        return ""
+
+    header = (
+        "# RECENT WORLD CONTEXT (past 7 days)\n"
+        "*These situations are ongoing — do not treat them as hypothetical or future risk.*\n"
+    )
+    return header + "\n\n".join(parts)
+
+
 def get_recent_article_keys(
     conn: sqlite3.Connection, today: str, days: int = 1
 ) -> set[str]:

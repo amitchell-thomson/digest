@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 from rich.align import Align
 from rich.console import Group
 from rich.padding import Padding
+from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-from rich import box
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -47,6 +47,24 @@ _TRANSPARENT_THEME = Theme(
 
 _SENTINEL_OVERVIEW = "__overview__"
 _SENTINEL_SEPARATOR = "__separator__"
+
+def _make_line_chart(prices: list[float], width: int = 36, height: int = 5) -> Text | None:
+    """Render a braille line chart via termichart. Returns None if no data."""
+    if not prices or len(prices) < 2:
+        return None
+    try:
+        import termichart
+        c = termichart.PyChart("line")
+        c.size(width, height)
+        for i, v in enumerate(prices):
+            c.add_point(float(i), float(v))
+        raw = c.render()
+        # Strip x-axis bar and labels (last 2 non-empty lines + trailing newline)
+        lines = raw.split("\n")
+        trimmed = "\n".join(lines[:-3])
+        return Text.from_ansi(trimmed)
+    except Exception:
+        return None
 
 
 def _label_markup(header: str) -> str:
@@ -86,26 +104,37 @@ def _overview_renderable(market_data: list[dict], story_body: str) -> Group:
 
     if market_data:
         cols = 3
-        table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
+        grid = Table(show_header=False, box=None, padding=(0, 1), expand=True)
         for _ in range(cols):
-            table.add_column()
+            grid.add_column(ratio=1)
+
         for i in range(0, len(market_data), cols):
-            row = market_data[i : i + cols]
+            row_items = market_data[i : i + cols]
             cells = []
-            for item in row:
+            for item in row_items:
+                history = item.get("history", [])
+                chart = _make_line_chart(history, width=36, height=5)
                 sign = "+" if item["change_pct"] >= 0 else ""
                 colour = item["colour"]
-                cell = Text()
-                cell.append(f"{item['name']} ", style="dim white")
-                cell.append(f"{item['price']} ", style=f"bold {colour}")
-                cell.append(
-                    f"{item['direction']}{sign}{item['change_pct']:.2f}%", style=colour
+                price_text = Align.center(
+                    Text(
+                        f"{item['price']}  {item['direction']}{sign}{item['change_pct']:.2f}%",
+                        style=f"bold {colour}",
+                    )
                 )
-                cells.append(cell)
+                cell_content = Group(chart, Text(""), price_text) if chart else price_text
+                cells.append(
+                    Panel(
+                        cell_content,
+                        title=f"[dim white]{item['name']}[/]",
+                        border_style="dim white",
+                    )
+                )
             while len(cells) < cols:
                 cells.append(Text(""))
-            table.add_row(*cells)
-        parts += [Rule(" MARKETS ", style="dim white"), Padding(table, (1, 0, 0, 0))]
+            grid.add_row(*cells)
+
+        parts += [Rule(" MARKETS ", style="dim white"), Padding(grid, (1, 0, 0, 0))]
 
     if story_body:
         cleaned = re.sub(r"\n\s*---+\s*$", "", story_body.strip())

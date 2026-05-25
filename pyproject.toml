@@ -16,6 +16,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
+    "termichart>=0.1.2",
     "textual>=8.2.5",
     "trafilatura>=1.6.0",
     "yfinance>=1.3.0",

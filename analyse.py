@@ -15,6 +15,7 @@ def build_article_context(
     sections: dict[str, list[dict]],
     run_date: str | None = None,
     market_data: list[dict] | None = None,
+    recent_context: str | None = None,
 ) -> str:
     """
     Serialise all fetched articles into a structured context block
@@ -24,6 +25,10 @@ def build_article_context(
     lines = ["# TODAY'S SOURCE MATERIAL\n"]
     if run_date:
         lines.append(f"**Briefing date: {run_date}**\n")
+
+    if recent_context:
+        lines.append(recent_context)
+        lines.append("")
 
     if market_data:
         lines.append("## MARKET SNAPSHOT\n")
@@ -63,6 +68,7 @@ def run_analysis(
     max_tokens: int,
     run_date: str | None = None,
     market_data: list[dict] | None = None,
+    recent_context: str | None = None,
 ) -> str:
     """
     Send all articles to Claude in a single call.
@@ -73,7 +79,7 @@ def run_analysis(
         raise ValueError("ANTHROPIC_API_KEY not set in environment / .env")
 
     client = anthropic.Anthropic(api_key=api_key)
-    context = build_article_context(sections, run_date, market_data)
+    context = build_article_context(sections, run_date, market_data, recent_context)
 
     user_message = f"{context}\n\n---\n\n{prompt}"
 

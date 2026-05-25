@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────
 
 # ── Articles ──────────────────────────────────────────────────
-articles_per_section: 6
+articles_per_section: 12
 max_description_chars: 1500
 max_article_age_days: 3 # skip articles older than this; 3 catches Mon-Wed articles on Friday
 
@@ -21,7 +21,6 @@ market_tickers:
   "DAX": "^GDAXI"
   "GBP/USD": "GBPUSD=X"
   "EUR/USD": "EURUSD=X"
-  "BTC": "BTC-USD"
   "Gold": "GC=F"
   "Oil (WTI)": "CL=F"
   "US 10Y": "^TNX"
@@ -50,6 +49,9 @@ sources:
     - "https://www.imf.org/en/News/rss"
     - "https://calculatedriskblog.com/feeds/posts/default"
     - "https://econbrowser.com/feed"
+    - "https://fredblog.stlouisfed.org/feed/"
+    - "https://www.nber.org/rss/new_working_papers.xml"
+    - "https://www.brookings.edu/feed/"
 
   "SCIENCE & TECHNOLOGY":
     - "https://feeds.arstechnica.com/arstechnica/index"
@@ -68,6 +70,9 @@ sources:
     - "https://alphaarchitect.com/feed/"
     - "https://quantocracy.com/feed/"
     - "https://robotwealth.com/feed/"
+    - "https://arxiv.org/rss/q-fin.PM"
+    - "https://arxiv.org/rss/q-fin.TR"
+    - "https://blog.thinknewfound.com/feed/"
 
 # ── Analyst prompt ────────────────────────────────────────────
 prompt: |
@@ -134,6 +139,8 @@ prompt: |
   - One clause of context for foreign actors/situations the reader may not know
   - Skip entertainment, sports, and tech product announcements unless there is a direct market or policy angle.
   - Be blunt.
+  - Use the RECENT WORLD CONTEXT block to ground your analysis. Situations described there are ongoing — do not treat them as hypothetical, emerging, or future risk.
+  - In THE STORY TODAY, name cross-section connections where they are real: a geopolitical development driving a central bank decision, a rate move rippling into equities, a policy shift with a direct market implication.
 
 # ── Urgency keywords ──────────────────────────────────────────
 urgent_keywords:
